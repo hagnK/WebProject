@@ -7,7 +7,10 @@ const t = 0.52
 const ht = t / 2  // half-thickness
 
 // Beam 3 far end: trimmed by 1/7 from the illusion corner
-const B3FAR = L * 6 / 7
+const B3FAR = L * 6 / 7 - 0.24
+
+// Trim amount for yellow/blue beam tops (≈2px in screen space)
+const YTRIM = 0.08
 
 // Visual centroid based on actual beam midpoints (no overlaps version)
 const CENTER = new THREE.Vector3(
@@ -78,34 +81,35 @@ export default function PenroseTriangle() {
 
     // Beams
     const mats = [
-      new THREE.MeshStandardMaterial({ color: 0xd64000, roughness: 0.2, metalness: 0.35 }),
+      // Red: emissive lift prevents black faces on unlit sides
+      new THREE.MeshStandardMaterial({ color: 0xd64000, roughness: 0.2, metalness: 0.35, emissive: new THREE.Color(0x2a0800) }),
       new THREE.MeshStandardMaterial({ color: 0xc89000, roughness: 0.2, metalness: 0.35 }),
       new THREE.MeshStandardMaterial({ color: 0x2860cc, roughness: 0.2, metalness: 0.35 }),
     ]
 
-    const addBox = (wx, wy, wz, cx, cy, cz, mat) => {
+    const addBox = (wx, wy, wz, cx, cy, cz, mat, castShadow = true, receiveShadow = true) => {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(wx, wy, wz), mat)
       mesh.position.set(cx, cy, cz)
-      mesh.castShadow = true
-      mesh.receiveShadow = true
+      mesh.castShadow = castShadow
+      mesh.receiveShadow = receiveShadow
       scene.add(mesh)
     }
 
     // No-overlap joint strategy: at each corner one beam "owns" the corner cube,
     // the other stops short — eliminates Z-fighting entirely.
 
-    // Beam 1 (red): X-axis, stops at x = L-ht (Beam 2 owns corner at (L,0,0))
-    addBox(L - ht,  t,  t,  (L - ht) / 2,  0,           0,           mats[0])
+    // Beam 1 (red): no cast/receive shadow — removes all dark patches
+    addBox(L - ht,  t,  t,  (L - ht) / 2,  0,  0,  mats[0],  false,  false)
 
     // Beam 2 (gold): Y-axis, extends from y=-ht (owns corner at (L,0,0)),
-    //   stops at y = L-ht (Beam 3 owns corner at (L,L,0))
-    addBox(t,  L,  t,  L,  (L - t) / 2,  0,           mats[1])
+    //   stops at y = L-ht-YTRIM
+    addBox(t,  L - YTRIM,  t,  L,  (L - t - YTRIM) / 2,  0,  mats[1])
 
     // Beam 3 (blue): Z-axis, extends from z=-ht (owns corner at (L,L,0)),
-    //   trimmed to 6/7 of L at far end (illusion corner)
+    //   trimmed at far end; y-center shifted down by YTRIM to stay connected
     const b3Len = B3FAR + ht
     const b3Z   = (-ht + B3FAR) / 2
-    addBox(t,  t,  b3Len,  L,  L,  b3Z,  mats[2])
+    addBox(t,  t,  b3Len,  L,  L - YTRIM,  b3Z,  mats[2])
 
     const grid = new THREE.GridHelper(20, 20, 0x223366, 0x223366)
     grid.position.set(CENTER.x, -1.5, CENTER.z)
