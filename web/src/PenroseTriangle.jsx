@@ -4,11 +4,16 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 
 const L = 3
 const t = 0.52
+const ht = t / 2  // half-thickness
 
+// Beam 3 far end: trimmed by 1/7 from the illusion corner
+const B3FAR = L * 6 / 7
+
+// Visual centroid based on actual beam midpoints (no overlaps version)
 const CENTER = new THREE.Vector3(
-  (L / 2 + L + L) / 3,
-  (0 + L / 2 + L) / 3,
-  (0 + 0 + L / 2) / 3
+  ((L - ht) / 2 + L + L) / 3,
+  (0 + (L - t) / 2 + L) / 3,
+  (0 + 0 + (-ht + B3FAR) / 2) / 3
 )
 
 const INV_S3 = 1 / Math.sqrt(3)
@@ -36,8 +41,8 @@ export default function PenroseTriangle() {
 
     // Scene
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color(0x07071a)
-    scene.fog = new THREE.FogExp2(0x07071a, 0.032)
+    scene.background = new THREE.Color(0x10102a)
+    scene.fog = new THREE.FogExp2(0x10102a, 0.022)
 
     // Camera
     const camera = new THREE.PerspectiveCamera(40, el.clientWidth / el.clientHeight, 0.1, 200)
@@ -55,27 +60,27 @@ export default function PenroseTriangle() {
     controls.update()
 
     // Lights
-    scene.add(new THREE.AmbientLight(0xffffff, 0.22))
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6))
 
-    const sun = new THREE.DirectionalLight(0xfff5cc, 1.15)
+    const sun = new THREE.DirectionalLight(0xfff5cc, 1.6)
     sun.position.set(12, 18, 8)
     sun.castShadow = true
     sun.shadow.mapSize.set(2048, 2048)
     scene.add(sun)
 
-    const fill = new THREE.DirectionalLight(0x4060cc, 0.4)
+    const fill = new THREE.DirectionalLight(0x5577ee, 0.55)
     fill.position.set(-10, -6, -10)
     scene.add(fill)
 
-    const rim = new THREE.DirectionalLight(0xff7733, 0.3)
+    const rim = new THREE.DirectionalLight(0xff8844, 0.45)
     rim.position.set(6, -12, 18)
     scene.add(rim)
 
     // Beams
     const mats = [
-      new THREE.MeshStandardMaterial({ color: 0xd64000, roughness: 0.3, metalness: 0.55 }),
-      new THREE.MeshStandardMaterial({ color: 0xc89000, roughness: 0.3, metalness: 0.55 }),
-      new THREE.MeshStandardMaterial({ color: 0x2860cc, roughness: 0.3, metalness: 0.55 }),
+      new THREE.MeshStandardMaterial({ color: 0xd64000, roughness: 0.2, metalness: 0.35 }),
+      new THREE.MeshStandardMaterial({ color: 0xc89000, roughness: 0.2, metalness: 0.35 }),
+      new THREE.MeshStandardMaterial({ color: 0x2860cc, roughness: 0.2, metalness: 0.35 }),
     ]
 
     const addBox = (wx, wy, wz, cx, cy, cz, mat) => {
@@ -86,9 +91,21 @@ export default function PenroseTriangle() {
       scene.add(mesh)
     }
 
-    addBox(L + t, t, t,  L / 2, 0,     0,     mats[0])
-    addBox(t, L + t, t,  L,     L / 2, 0,     mats[1])
-    addBox(t, t, L + t,  L,     L,     L / 2, mats[2])
+    // No-overlap joint strategy: at each corner one beam "owns" the corner cube,
+    // the other stops short — eliminates Z-fighting entirely.
+
+    // Beam 1 (red): X-axis, stops at x = L-ht (Beam 2 owns corner at (L,0,0))
+    addBox(L - ht,  t,  t,  (L - ht) / 2,  0,           0,           mats[0])
+
+    // Beam 2 (gold): Y-axis, extends from y=-ht (owns corner at (L,0,0)),
+    //   stops at y = L-ht (Beam 3 owns corner at (L,L,0))
+    addBox(t,  L,  t,  L,  (L - t) / 2,  0,           mats[1])
+
+    // Beam 3 (blue): Z-axis, extends from z=-ht (owns corner at (L,L,0)),
+    //   trimmed to 6/7 of L at far end (illusion corner)
+    const b3Len = B3FAR + ht
+    const b3Z   = (-ht + B3FAR) / 2
+    addBox(t,  t,  b3Len,  L,  L,  b3Z,  mats[2])
 
     const grid = new THREE.GridHelper(20, 20, 0x223366, 0x223366)
     grid.position.set(CENTER.x, -1.5, CENTER.z)
@@ -162,7 +179,7 @@ export default function PenroseTriangle() {
   }
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100vh', background: '#07071a' }}>
+    <div style={{ position: 'relative', width: '100%', height: '100vh', background: '#10102a' }}>
       <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
 
       {/* Title */}
